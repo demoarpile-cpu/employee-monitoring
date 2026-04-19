@@ -33,6 +33,7 @@ const activityController = {
 
             // RBAC Filtering
             if (role === 'EMPLOYEE' && employeeId !== currentEmployeeId) {
+                console.warn(`[ActivityController] Access denied for employee ${currentEmployeeId} trying to view ${employeeId}`);
                 return errorResponse(res, 'Access denied: You can only view your own activity', 403);
             }
 
@@ -105,6 +106,13 @@ const activityController = {
         try {
             const { employeeId } = req.params;
             const { startDate, endDate } = req.query;
+            const { role, employeeId: currentEmployeeId } = req.user;
+
+            // RBAC Filtering - Security Enhancement
+            if (role === 'EMPLOYEE' && employeeId !== currentEmployeeId) {
+                console.warn(`[ActivityController] Summary access denied for employee ${currentEmployeeId} trying to view ${employeeId}`);
+                return errorResponse(res, 'Access denied: You can only view your own summary', 403);
+            }
 
             const summary = await activityService.getEmployeeSummary(employeeId, startDate, endDate);
             return successResponse(res, summary, 'Employee summary fetched successfully');

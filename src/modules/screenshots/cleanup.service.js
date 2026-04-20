@@ -1,7 +1,6 @@
 const cron = require('node-cron');
 const prisma = require('../../config/db');
-const fs = require('fs');
-const path = require('path');
+const { deleteImageByUrl } = require('../../utils/imageStorage');
 
 /**
  * Cleanup service to remove old screenshots from disk and database
@@ -67,17 +66,12 @@ class CleanupService {
 
             console.log(`[CleanupService] Deleting ${oldScreenshots.length} screenshots in this batch...`);
 
-            // 3. Delete physical files from disk
+            // 3. Delete backing files/objects (local or cloud)
             for (const ss of oldScreenshots) {
-                if (ss.imageUrl && ss.imageUrl.startsWith('/uploads/')) {
-                    const filePath = path.join(__dirname, '../../../public', ss.imageUrl);
-                    try {
-                        if (fs.existsSync(filePath)) {
-                            fs.unlinkSync(filePath);
-                        }
-                    } catch (err) {
-                        console.error(`[CleanupService] Error deleting file ${filePath}:`, err.message);
-                    }
+                try {
+                    await deleteImageByUrl(ss.imageUrl);
+                } catch (err) {
+                    console.error(`[CleanupService] Error deleting screenshot asset ${ss.imageUrl}:`, err.message);
                 }
             }
 

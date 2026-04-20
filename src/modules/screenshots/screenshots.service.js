@@ -1,6 +1,5 @@
 const prisma = require('../../config/db');
-const fs = require('fs');
-const path = require('path');
+const { deleteImageByUrl } = require('../../utils/imageStorage');
 
 class ScreenshotsService {
     async createScreenshot(data) {
@@ -62,13 +61,8 @@ class ScreenshotsService {
         const screenshot = await prisma.screenshot.findUnique({ where: { id } });
         if (!screenshot) return null;
 
-        // Delete physical file if it's a local upload
-        if (screenshot.imageUrl && screenshot.imageUrl.startsWith('/uploads/')) {
-            const filePath = path.join(__dirname, '../../../public', screenshot.imageUrl);
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-            }
-        }
+        // Delete backing image (local file or cloud object)
+        await deleteImageByUrl(screenshot.imageUrl);
 
         return await prisma.screenshot.delete({ where: { id } });
     }
@@ -94,14 +88,9 @@ class ScreenshotsService {
             where: { id: { in: ids } }
         });
 
-        // Delete physical files
+        // Delete backing files/objects
         for (const ss of screenshots) {
-            if (ss.imageUrl && ss.imageUrl.startsWith('/uploads/')) {
-                const filePath = path.join(__dirname, '../../../public', ss.imageUrl);
-                if (fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
-                }
-            }
+            await deleteImageByUrl(ss.imageUrl);
         }
 
         // Delete database records

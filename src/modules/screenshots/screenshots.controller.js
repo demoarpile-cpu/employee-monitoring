@@ -2,9 +2,7 @@ const screenshotsService = require('./screenshots.service');
 const { successResponse, errorResponse } = require('../../utils/response');
 const { getOrganizationId } = require('../../utils/orgId');
 const prisma = require('../../config/db');
-const sharp = require('sharp');
-const fs = require('fs');
-const path = require('path');
+const { uploadImageBuffer } = require('../../utils/imageStorage');
 
 const screenshotsController = {
     // POST /api/screenshots
@@ -24,29 +22,16 @@ const screenshotsController = {
 
             // If an image file was uploaded, process it
             if (req.file) {
-                // Compress image and save to local disk
-                console.log('Received file upload, processing...');
-                const filename = `${Date.now()}-${Math.round(Math.random() * 1E9)}.webp`;
-                const uploadDir = path.join(__dirname, '../../../public/uploads/screenshots');
-                
-                if (!fs.existsSync(uploadDir)) {
-                    fs.mkdirSync(uploadDir, { recursive: true });
-                }
-
-                const filepath = path.join(uploadDir, filename);
+                // Compress image and store in Cloudinary (or local fallback)
                 const shouldBlur = req.body.blurred === 'true';
-
-                let imageProcessor = sharp(req.file.buffer);
-                
-                if (shouldBlur) {
-                    imageProcessor = imageProcessor.blur(15); // Consistent blur level
-                }
-
-                await imageProcessor
-                    .webp({ quality: 80 })
-                    .toFile(filepath);
-
-                imageUrl = `/uploads/screenshots/${filename}`;
+                const uploadResult = await uploadImageBuffer(req.file.buffer, {
+                    format: 'webp',
+                    quality: 80,
+                    blur: shouldBlur,
+                    folder: `insightful/screenshots/${organizationId}`,
+                    fileNamePrefix: `manual_${employeeId}`
+                });
+                imageUrl = uploadResult.imageUrl;
             }
 
             const screenshot = await screenshotsService.createScreenshot({

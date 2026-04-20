@@ -1,8 +1,6 @@
 const prisma = require('../../config/db');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
 const attendanceService = require('../attendance/attendance.service');
+const { uploadImageBuffer } = require('../../utils/imageStorage');
 
 /**
  * Register a new device agent for an employee
@@ -199,27 +197,23 @@ const logActivity = async (employeeId, data) => {
     if (screenshotUrl) {
         let finalUrl = screenshotUrl;
         
-        // Handle Base64 strings by saving to file system
+        // Handle Base64 strings by saving to Cloudinary (or local fallback)
         if (screenshotUrl.startsWith('data:image/')) {
             try {
                 const matches = screenshotUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
                 if (matches && matches.length === 3) {
                     const buffer = Buffer.from(matches[2], 'base64');
-                    const extension = matches[1].split('/')[1] || 'jpeg';
-                    const fileName = `screenshot_${employeeId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.${extension}`;
-                    const uploadDir = path.join(__dirname, '../../../public/uploads/screenshots');
-                    
-                    if (!fs.existsSync(uploadDir)) {
-                        fs.mkdirSync(uploadDir, { recursive: true });
-                    }
-                    
-                    const filePath = path.join(uploadDir, fileName);
-                    fs.writeFileSync(filePath, buffer);
-                    finalUrl = `/uploads/screenshots/${fileName}`;
-                    console.log(`[AgentService:${employeeId}] Screenshot saved to disk: ${finalUrl}`);
+                    const uploadResult = await uploadImageBuffer(buffer, {
+                        format: 'jpeg',
+                        quality: 60,
+                        folder: `insightful/screenshots/${employee.organizationId}`,
+                        fileNamePrefix: `agent_${employeeId}`
+                    });
+                    finalUrl = uploadResult.imageUrl;
+                    console.log(`[AgentService:${employeeId}] Screenshot stored in ${uploadResult.storage}: ${finalUrl}`);
                 }
             } catch (err) {
-                console.error(`[AgentService:${employeeId}] Failed to save base64 screenshot to file:`, err.message);
+                console.error(`[AgentService:${employeeId}] Failed to store base64 screenshot:`, err.message);
             }
         }
 

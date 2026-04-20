@@ -163,7 +163,7 @@ const logActivity = async (req, res) => {
             return errorResponse(res, 'Unauthorized', 401);
         }
 
-        await agentService.logActivity(employeeId, data);
+        const logResult = await agentService.logActivity(employeeId, data);
 
         // Emit Real-time Socket Events
         const io = getIO();
@@ -171,14 +171,17 @@ const logActivity = async (req, res) => {
             const room = `org_${organizationId}`;
             
             // 1. Notify about new screenshot
-            if (data.screenshotUrl) {
+            if (logResult?.screenshotSaved && logResult?.finalScreenshotUrl) {
                 io.to(room).emit('screenshot:new', {
                     employeeId,
-                    imageUrl: data.screenshotUrl,
+                    imageUrl: logResult.finalScreenshotUrl,
                     capturedAt: data.timestamp || new Date(),
                     productivity: 'NEUTRAL',
                     employeeName: agent.employee.fullName
                 });
+            } else if (data.screenshotUrl) {
+                // Helps debug live mismatch: agent sent screenshot but DB/storage save failed.
+                console.warn(`[AgentController] Screenshot event skipped (not persisted) for employee ${employeeId}`);
             }
 
             // 2. Update activity stream

@@ -141,6 +141,8 @@ const heartbeat = async (deviceId) => {
  */
 const logActivity = async (employeeId, data) => {
     const { activeApp, activeWindow, idleTime, screenshotUrl, location, timestamp } = data;
+    let screenshotSaved = false;
+    let finalScreenshotUrl = null;
 
     // Get employee for organizationId
     const employee = await prisma.employee.findUnique({
@@ -228,6 +230,8 @@ const logActivity = async (employeeId, data) => {
                     productivity: isIdle ? 'UNPRODUCTIVE' : 'NEUTRAL'
                 }
             });
+            screenshotSaved = true;
+            finalScreenshotUrl = finalUrl;
             console.log(`[AgentService:${employeeId}] Screenshot record created in DB`);
         } catch (e) { console.error(`[AgentService:${employeeId}] Screenshot log failed:`, e.message); }
         
@@ -294,7 +298,7 @@ const logActivity = async (employeeId, data) => {
         });
     } catch (e) { console.error('Agent update failed:', e.message); }
 
-    return { success: true };
+    return { success: true, screenshotSaved, finalScreenshotUrl };
 };
 
 /**
